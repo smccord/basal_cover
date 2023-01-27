@@ -77,3 +77,39 @@ ggplot(total_basal_cover_summary %>%
 
   
 ```
+
+Compare to total foliar cover variability
+
+```{r}
+# calculate basal cover by species
+total_foliar_cover <- pct_cover_total_foliar(lpi)
+
+
+# join back with site visits so we can summarize by site
+total_foliar_cover <- left_join(site_visits, total_foliar_cover) %>% 
+  # make sure DateVisited is considered a date
+  mutate(DateVisited = as.Date(DateVisited), 
+         julian_day = yday(DateVisited), 
+         year = year(DateVisited) %>% as.factor())
+
+
+# plot
+ggplot(total_foliar_cover %>% 
+         # only look at rangeland sites
+         subset(ProjectKey %in% c("NWERN_JER", 
+                                  "NWERN_CPER", 
+                                  "NWERN_HAFB", 
+                                  "NWERN_Lordsburg", 
+                                  "NWERN_Moab", 
+                                  "NWERN_RedHills", 
+                                  "NWERN_SLV", 
+                                  "NWERN_TwinValley"
+         )), 
+       aes(x = julian_day, y = TotalFoliarCover, group = year, color = year)) +
+  facet_wrap(. ~ ProjectKey) + 
+  geom_line()  +
+  labs(title = "Variability in total foliar cover at NWERN rangeland sites",
+       x = "Day of Year",
+       y = "Total foliar cover (%)")
+
+```
