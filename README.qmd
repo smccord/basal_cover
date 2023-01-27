@@ -1,0 +1,79 @@
+---
+title: "basal_gap_variability"
+format: html
+editor: visual
+execute: 
+  warning: false
+---
+
+## Basal Gap
+
+## Data
+
+NWERN data
+
+```{r}
+library(dplyr)
+library(stringr)
+library(ggplot2)
+library(terradactyl)
+library(lubridate)
+
+# set up data ####
+lpi <- read.csv("data/NWERN_dataLPI_2022-12-08.csv")
+
+# remove instances of empty rows
+lpi <- lpi %>% subset(code != "")
+
+# unique PrimaryKey/ProjectKey combos
+site_visits <- lpi %>% select(ProjectKey, PrimaryKey, DateVisited) %>% 
+  distinct()
+
+# summarize data ####
+site_visits %>% group_by(ProjectKey) %>% count()
+
+```
+
+## Basal Cover Variability
+
+```{r}
+# calculate basal cover by species
+basal_cover <- pct_cover_species(lpi, hit = "basal", by_line = TRUE)
+
+# calculate total basal cover
+total_basal_cover <- basal_cover %>% group_by(PrimaryKey, LineKey) %>%
+  summarise(percent = sum(percent))
+
+# join back with site visits so we can summarize by site
+total_basal_cover <- left_join(site_visits, total_basal_cover) %>% 
+  # make sure DateVisited is considered a date
+  mutate(DateVisited = as.Date(DateVisited), 
+         julian_day = yday(DateVisited), 
+         year = year(DateVisited) %>% as.factor())
+
+# summarise to plot
+total_basal_cover_summary <- total_basal_cover %>% group_by(PrimaryKey) %>%
+  summarise(mean = mean(percent), 
+            sd = sd(percent)) %>% left_join(total_basal_cover, .)
+
+# plot
+ggplot(total_basal_cover_summary %>% 
+         # only look at rangeland sites
+         subset(ProjectKey %in% c("NWERN_JER", 
+                                  "NWERN_CPER", 
+                                  "NWERN_HAFB", 
+                                  "NWERN_Lordsburg", 
+                                  "NWERN_Moab", 
+                                  "NWERN_RedHills", 
+                                  "NWERN_SLV", 
+                                  "NWERN_TwinValley"
+         )), 
+       aes(x = julian_day, y = mean, group = year, color = year)) +
+  facet_wrap(. ~ ProjectKey) + 
+  geom_line()  +
+  labs(title = "Variability in basal cover at NWERN rangeland sites",
+       x = "Day of Year",
+       y = "Basal cover (%)")
+
+  
+```
